@@ -10,7 +10,6 @@ pipeline {
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         BACKEND_ECR_REPO = "${ECR_REGISTRY}/${BACKEND_IMAGE}"
         FRONTEND_ECR_REPO = "${ECR_REGISTRY}/${FRONTEND_IMAGE}"
-        ECS_CLUSTER = 'content-platform-ecs-cluster'
         BACKEND_SERVICE_NAME = 'backend'       // ✅ updated
         FRONTEND_SERVICE_NAME = 'frontend'     // ✅ updated
         BACKEND_TASK_FAMILY = 'content-platform-backend-task'
