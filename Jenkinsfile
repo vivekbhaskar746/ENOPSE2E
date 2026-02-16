@@ -41,7 +41,7 @@ pipeline {
 
     stage('Clone Repository') {
       steps {
-        git url: 'https://github.com/vivekbhaskar746/ENOPSE2E.git', branch: 'main'
+        git url: 'https://github.com/vivekbhaskar746/ENOPSE2E.git', branch: 'master'
       }
     }
 
