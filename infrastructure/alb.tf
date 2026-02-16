@@ -48,7 +48,7 @@ resource "aws_lb_target_group" "backend" {
 # }
 
 resource "aws_lb_listener" "http" {
-  load_balancer_arn = module.alb.lb_arn
+  load_balancer_arn = module.alb.arn
   port              = 80
   protocol          = "HTTP"
 
