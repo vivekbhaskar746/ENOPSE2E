@@ -23,17 +23,13 @@ pipeline {
         RDS_ENDPOINT = "${aws_db_instance.postgres.endpoint}"
     }
 
-    options {
-        timeout(time: 45, unit: 'MINUTES')
-    }
-
-    stage('Clone Repository') {
+    
+    stages {
+        stage('Clone Repository') {
             steps {
                 git url: 'https://github.com/vivekbhaskar746/ENOPSE2E.git', branch: 'main'
             }
         }
-
-    stages {
         stage('Build Infrastructure') {
             steps {
                 dir('infrastructure') {
