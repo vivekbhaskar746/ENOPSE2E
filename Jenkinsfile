@@ -16,7 +16,7 @@ pipeline {
         FRONTEND_TASK_FAMILY = 'content-platform-frontend-task'
         DB_HOST = 'app-postgres.c9h8x8x8x8.us-east-1.rds.amazonaws.com'
         DB_USER = 'vivek'
-        DB_PASSWORD = credentials('db-password')
+        DB_PASSWORD = 'vivekbhaskar'
         ECR_REPO_FRONTEND = "frontend-repo" // Updated to match ecr.tf
         ECR_REPO_BACKEND = "backend-repo" // Updated to match ecr.tf
         ECS_CLUSTER = "app-cluster"
@@ -26,6 +26,12 @@ pipeline {
     options {
         timeout(time: 45, unit: 'MINUTES')
     }
+
+    stage('Clone Repository') {
+            steps {
+                git url: 'https://github.com/vivekbhaskar746/ENOPSE2E.git', branch: 'main'
+            }
+        }
 
     stages {
         stage('Build Infrastructure') {
@@ -43,11 +49,6 @@ pipeline {
             }
         }
 
-        stage('Clone Repository') {
-            steps {
-                git url: 'https://github.com/vivekbhaskar746/ENOPSE2E.git', branch: 'main'
-            }
-        }
 
         stage('Build Backend') {
             steps {
