@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket        = "enops-tf-state-bucket"
-    key           = "infra/terraform.tfstate"
+    key           = "enopse2e/infrastructure/terraform.tfstate"
     region        = "us-east-1"
     encrypt       = true
 
