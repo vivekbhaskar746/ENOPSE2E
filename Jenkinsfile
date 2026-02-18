@@ -69,9 +69,6 @@ pipeline {
             sh '''
               set -euo pipefail
 
-              # Ensure workspace is writable
-              chmod -R u+rwX .
-
               # Use remote backend (backend.tf must be configured for S3 + DynamoDB)
 
               rm -rf .terraform terraform.tfstate terraform.tfstate.backup
