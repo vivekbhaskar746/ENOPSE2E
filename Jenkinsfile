@@ -249,7 +249,7 @@ pipeline {
               aws ecs register-task-definition \
                 --cli-input-json "$new_def" \
                 --query 'taskDefinition.taskDefinitionArn' \
-                --output text >/dev/null
+                --output text
             }
 
             update_task_def_with_python() {
@@ -279,7 +279,7 @@ PY
               aws ecs register-task-definition \
                 --cli-input-json file://new_td.json \
                 --query 'taskDefinition.taskDefinitionArn' \
-                --output text >/dev/null
+                --output text
             }
 
             update_task_def() {
