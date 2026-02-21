@@ -5,6 +5,15 @@ module "alb" {
   subnets = module.vpc.public_subnets
   # Disable deletion protection
   enable_deletion_protection = false
+
+  security_group_ingress_rules = {
+    all_ipv4 = {
+      from_port = 0
+      to_port   = 0
+      protocol  = "-1"
+      cidr_ipv4 = "0.0.0.0/0"
+    }
+  }
 }
 
 resource "aws_lb_target_group" "frontend" {

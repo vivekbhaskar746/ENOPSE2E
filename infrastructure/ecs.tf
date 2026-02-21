@@ -21,6 +21,25 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
+resource "aws_security_group" "ecs_backend_sg" {
+  name   = "ecs-backend-sg"
+  vpc_id = module.vpc.vpc_id
+
+  ingress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    security_groups = [module.alb.security_group_id]
+  }
+
+  egress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    security_groups = [aws_security_group.rds_sg.id]
+  }
+}
+
 resource "aws_ecs_task_definition" "frontend" {
   family                   = "frontend"
   requires_compatibilities = ["FARGATE"]
@@ -117,7 +136,7 @@ resource "aws_ecs_service" "backend" {
 
   network_configuration {
     subnets         = module.vpc.private_subnets
-    security_groups = [aws_security_group.ecs_sg.id]
+    security_groups = [aws_security_group.ecs_backend_sg.id]
   }
 
   load_balancer {

@@ -7,6 +7,10 @@ pipeline {
     timeout(time: 45, unit: 'MINUTES')
   }
 
+  parameters {
+    booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: 'Destroy infrastructure at the end of the pipeline')
+  }
+
   environment {
     // AWS
     AWS_REGION     = 'us-east-1'
@@ -19,6 +23,8 @@ pipeline {
     FRONTEND_SERVICE_NAME = 'frontend'
     BACKEND_TASK_FAMILY   = 'backend'
     FRONTEND_TASK_FAMILY  = 'frontend'
+    BACKEND_CONTAINER_NAME = 'backend'
+    FRONTEND_CONTAINER_NAME = 'frontend'
 
     // ECR repos (match Terraform-managed repos)
     BACKEND_IMAGE = 'backend-repo'
@@ -204,6 +210,7 @@ pipeline {
             update_task_def_with_jq() {
               local family="$1"
               local image="$2"
+              local container_name="$3"
               local td_json=$(mktemp)
 
               aws ecs describe-task-definition \
@@ -211,8 +218,13 @@ pipeline {
                 --query 'taskDefinition' \
                 --output json > "$td_json"
 
-              local new_def=$(jq --arg IMAGE "$image" '
-                .containerDefinitions[0].image = $IMAGE
+              if ! jq -e --arg NAME "$container_name" '.containerDefinitions[]?.name == $NAME' "$td_json" >/dev/null; then
+                echo "ERROR: container '$container_name' not found in task definition '$family'."
+                exit 1
+              fi
+
+              local new_def=$(jq --arg IMAGE "$image" --arg NAME "$container_name" '
+                .containerDefinitions = (.containerDefinitions | map(if .name == $NAME then .image = $IMAGE else . end))
                 | {
                     family: .family,
                     taskRoleArn: .taskRoleArn,
@@ -230,17 +242,20 @@ pipeline {
                     inferenceAccelerators: .inferenceAccelerators,
                     runtimePlatform: .runtimePlatform,
                     ephemeralStorage: .ephemeralStorage
-                  }' "$td_json")
+                  }
+                | with_entries(select(.value != null))
+                ' "$td_json")
 
               aws ecs register-task-definition \
                 --cli-input-json "$new_def" \
                 --query 'taskDefinition.taskDefinitionArn' \
-                --output text
+                --output text >/dev/null
             }
 
             update_task_def_with_python() {
               local family="$1"
               local image="$2"
+              local container_name="$3"
 
               aws ecs describe-task-definition \
                 --task-definition "$family" \
@@ -250,24 +265,31 @@ pipeline {
               python3 - <<PY > new_td.json
 import json
 td=json.load(open('td.json'))
-td['containerDefinitions'][0]['image'] = '${BACKEND_ECR_REPO}:${VERSION}' if '${family}'=='${BACKEND_TASK_FAMILY}' else '${FRONTEND_ECR_REPO}:${VERSION}'
+if not any(c.get('name') == '${container_name}' for c in td.get('containerDefinitions', [])):
+    raise SystemExit("ERROR: container '${container_name}' not found in task definition '${family}'.")
+for c in td.get('containerDefinitions', []):
+    if c.get('name') == '${container_name}':
+        c['image'] = '${image}'
+        break
 keys=['family','taskRoleArn','executionRoleArn','networkMode','containerDefinitions','volumes','placementConstraints','requiresCompatibilities','cpu','memory','pidMode','ipcMode','proxyConfiguration','inferenceAccelerators','runtimePlatform','ephemeralStorage']
-print(json.dumps({k:td.get(k) for k in keys if k in td}))
+payload={k:td.get(k) for k in keys if k in td and td.get(k) is not None}
+print(json.dumps(payload))
 PY
 
               aws ecs register-task-definition \
                 --cli-input-json file://new_td.json \
                 --query 'taskDefinition.taskDefinitionArn' \
-                --output text
+                --output text >/dev/null
             }
 
             update_task_def() {
               local family="$1"
               local image="$2"
+              local container_name="$3"
               if command -v jq >/dev/null 2>&1; then
-                update_task_def_with_jq "$family" "$image"
+                update_task_def_with_jq "$family" "$image" "$container_name"
               elif command -v python3 >/dev/null 2>&1; then
-                update_task_def_with_python "$family" "$image"
+                update_task_def_with_python "$family" "$image" "$container_name"
               else
                 echo "ERROR: Neither jq nor python3 available to mutate task definition JSON."
                 exit 1
@@ -275,11 +297,11 @@ PY
             }
 
             # Update backend TD and service
-            BACKEND_REVISION=$(update_task_def "$BACKEND_TASK_FAMILY" "${BACKEND_ECR_REPO}:${VERSION}")
+            BACKEND_REVISION=$(update_task_def "$BACKEND_TASK_FAMILY" "${BACKEND_ECR_REPO}:${VERSION}" "$BACKEND_CONTAINER_NAME")
             aws ecs update-service --cluster "$ECS_CLUSTER" --service "$BACKEND_SERVICE_NAME" --task-definition "$BACKEND_REVISION" >/dev/null
 
             # Update frontend TD and service
-            FRONTEND_REVISION=$(update_task_def "$FRONTEND_TASK_FAMILY" "${FRONTEND_ECR_REPO}:${VERSION}")
+            FRONTEND_REVISION=$(update_task_def "$FRONTEND_TASK_FAMILY" "${FRONTEND_ECR_REPO}:${VERSION}" "$FRONTEND_CONTAINER_NAME")
             aws ecs update-service --cluster "$ECS_CLUSTER" --service "$FRONTEND_SERVICE_NAME" --task-definition "$FRONTEND_REVISION" >/dev/null
 
             # Wait for services to stabilize (optional but recommended)
@@ -304,6 +326,23 @@ PY
             echo "mysql client not present; skipping RDS connectivity check."
           fi
         '''
+      }
+    }
+
+    stage('Destroy Infrastructure') {
+      when {
+        expression { return params.DESTROY_INFRA }
+      }
+      steps {
+        dir('infrastructure') {
+          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials-id']]) {
+            sh '''
+              set -euo pipefail
+              terraform init -input=false -reconfigure
+              terraform destroy -auto-approve
+            '''
+          }
+        }
       }
     }
   }
