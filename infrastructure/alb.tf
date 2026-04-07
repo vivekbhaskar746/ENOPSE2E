@@ -14,6 +14,15 @@ module "alb" {
       cidr_ipv4 = "0.0.0.0/0"
     }
   }
+
+  security_group_egress_rules = {
+    all_outbound = {
+      from_port = 0
+      to_port   = 0
+      protocol  = "-1"
+      cidr_ipv4 = "0.0.0.0/0"
+    }
+  }
 }
 
 resource "aws_lb_target_group" "frontend" {
@@ -27,11 +36,11 @@ resource "aws_lb_target_group" "frontend" {
 
 resource "aws_lb_target_group" "backend" {
   name     = "tg-backend"
-  port     = 8080
+  port     = 1995
   protocol = "HTTP"
   vpc_id   = module.vpc.vpc_id
   target_type = "ip" 
-  health_check { path = "/" }
+  health_check { path = "/api/faqs" }
 }
 
 # resource "aws_lb_target_group" "blog_backend" {

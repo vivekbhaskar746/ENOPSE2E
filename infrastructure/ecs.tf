@@ -36,7 +36,7 @@ resource "aws_security_group" "ecs_backend_sg" {
     from_port       = 0
     to_port         = 0
     protocol        = "-1"
-    cidr_blocks     = [module.vpc.vpc_cidr_block]
+    cidr_blocks     = ["0.0.0.0/0"]
   }
 }
 
@@ -52,9 +52,6 @@ resource "aws_ecs_task_definition" "frontend" {
     name  = "frontend"
     image = "${aws_ecr_repository.frontend.repository_url}:latest"
     portMappings = [{containerPort=80}]
-    environment = [
-      { name = "REACT_APP_API_BASE_URL", value = "http://localhost:9090/api" }
-    ]
   }])
 }
 
@@ -62,8 +59,8 @@ resource "aws_ecs_task_definition" "backend" {
   family                   = "backend"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu    = 256
-  memory = 512
+  cpu    = 512
+  memory = 1024
   execution_role_arn = aws_iam_role.ecs_exec.arn
 
   container_definitions = jsonencode([{
@@ -71,8 +68,8 @@ resource "aws_ecs_task_definition" "backend" {
     image = "${aws_ecr_repository.backend.repository_url}:latest"
     portMappings = [{containerPort=1995}]
     environment = [
-      { name = "DB_HOST", value = aws_db_instance.postgres.endpoint },
-      { name = "DB_USER", value = aws_db_instance.postgres.username },
+      { name = "DB_URL", value = "jdbc:mysql://${aws_db_instance.postgres.endpoint}/mydb?useSSL=false&serverTimezone=UTC" },
+      { name = "DB_USERNAME", value = aws_db_instance.postgres.username },
       { name = "DB_PASSWORD", value = aws_db_instance.postgres.password }
     ]
   }])

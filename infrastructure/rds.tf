@@ -27,7 +27,7 @@ resource "aws_db_instance" "postgres" {
   engine                 = "mysql"
   instance_class         = "db.t4g.micro"
   allocated_storage      = 20
-   username               = "root" # Updated username
+   username               = "vivek" # Updated username
   password               = "vivekbhaskar" # Updated password
   skip_final_snapshot    = true
   db_subnet_group_name   = aws_db_subnet_group.db.name
